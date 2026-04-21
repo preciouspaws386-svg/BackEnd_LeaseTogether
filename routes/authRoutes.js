@@ -10,14 +10,17 @@ const sendToken = (user, statusCode, res) => {
     expiresIn: process.env.JWT_EXPIRE,
   });
 
+  const isProd = process.env.NODE_ENV === 'production';
   const options = {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     httpOnly: true,
-    sameSite: 'lax',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
   };
 
   return res.status(statusCode).cookie('token', token, options).json({
     success: true,
+    token,
     user: {
       _id: user._id,
       firstName: user.firstName,
