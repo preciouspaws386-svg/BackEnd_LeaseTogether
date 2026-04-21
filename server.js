@@ -32,6 +32,13 @@ app.use('/api/apartments', apartmentRoutes);
 app.use('/api/meetups', meetupRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Backwards-compatible mounts (frontend calls without /api)
+app.use('/auth', authRoutes);
+app.use('/users', userRoutes);
+app.use('/apartments', apartmentRoutes);
+app.use('/meetups', meetupRoutes);
+app.use('/admin', adminRoutes);
+
 app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
 
 const PORT = process.env.PORT || 5000;
