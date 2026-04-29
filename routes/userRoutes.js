@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const School = require('../models/School');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -36,19 +37,21 @@ router.post('/photos', protect, async (req, res) => {
 router.get('/community', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
-    let query = { _id: { $ne: req.user._id } };
-
-    if (currentUser.apartment) {
-      query.apartment = currentUser.apartment;
-    } else if (currentUser.apartmentName) {
-      query.apartmentName = currentUser.apartmentName;
+    if (!currentUser.school) {
+      return res.status(400).json({ message: 'School not set' });
     }
+
+    const query = {
+      _id: { $ne: req.user._id },
+      school: currentUser.school,
+      isDisabled: { $ne: true },
+    };
 
     const users = await User.find(query)
       .select(
-        'firstName lastInitial age major bio photos moveInTimeframe intent isOpenToRoommate apartment apartmentName socialVibe weekendPlans energyLevel hobbies'
+        'firstName lastInitial age major bio photos moveInTimeframe intent isOpenToRoommate school campusPreference memberSince socialMedia lgbtqFriendly transportation hobbies monthlyBudget roommatePreference personalityVibe lifestyleVibes'
       )
-      .populate('apartment', 'name city state');
+      .populate('school', 'name state');
 
     return res.json({ success: true, users });
   } catch (err) {
@@ -78,16 +81,16 @@ router.patch('/profile', protect, async (req, res) => {
       'bio',
       'moveInTimeframe',
       'intent',
-      'socialVibe',
-      'weekendPlans',
-      'energyLevel',
-      'conflictStyle',
-      'personalSpace',
-      'lifestylePace',
-      'rechargeStyle',
-      'roommateValue',
-      'dailyRoutine',
-      'communicationStyle',
+      'monthlyBudget',
+      'roommatePreference',
+      'lgbtqFriendly',
+      'religion',
+      'transportation',
+      'socialMedia',
+      'lifestyleVibes',
+      'livingTogether',
+      'personalityVibe',
+      'guestsAndVisitors',
       'hobbies',
     ];
     const updates = {};
@@ -96,6 +99,35 @@ router.patch('/profile', protect, async (req, res) => {
     });
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
     return res.json({ success: true, user });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Server error' });
+  }
+});
+
+// PATCH /api/users/school
+// Allows (re-)selecting school/campusPreference only when user.school is not set (admin reset flow).
+router.patch('/school', protect, async (req, res) => {
+  try {
+    const { schoolId, campusPreference } = req.body || {};
+    if (!schoolId || !campusPreference) {
+      return res.status(400).json({ message: 'schoolId and campusPreference are required' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.school) {
+      return res.status(403).json({ message: 'School already set; cannot be changed' });
+    }
+
+    const school = await School.findById(schoolId);
+    if (!school) return res.status(400).json({ message: 'Invalid school selection' });
+
+    user.school = schoolId;
+    user.campusPreference = campusPreference;
+    await user.save();
+
+    const populated = await User.findById(user._id).populate('school', 'name state');
+    return res.json({ success: true, user: populated });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });
   }

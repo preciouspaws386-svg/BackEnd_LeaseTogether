@@ -9,6 +9,8 @@ const userRoutes = require('./routes/userRoutes');
 const apartmentRoutes = require('./routes/apartmentRoutes');
 const meetupRoutes = require('./routes/meetupRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const listingRoutes = require('./routes/listingRoutes');
+const schoolRoutes = require('./routes/schoolRoutes');
 
 connectDB();
 
@@ -32,6 +34,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/apartments', apartmentRoutes);
 app.use('/api/meetups', meetupRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/listings', listingRoutes);
+app.use('/api/schools', schoolRoutes);
 
 // Backwards-compatible mounts (frontend calls without /api)
 app.use('/auth', authRoutes);
@@ -39,6 +43,8 @@ app.use('/users', userRoutes);
 app.use('/apartments', apartmentRoutes);
 app.use('/meetups', meetupRoutes);
 app.use('/admin', adminRoutes);
+app.use('/listings', listingRoutes);
+app.use('/schools', schoolRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
 
