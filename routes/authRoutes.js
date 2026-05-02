@@ -53,6 +53,10 @@ const sendToken = (user, statusCode, res) => {
       personalityVibe: user.personalityVibe,
       guestsAndVisitors: user.guestsAndVisitors,
       hobbies: user.hobbies,
+      yearInSchool: user.yearInSchool,
+      trialStartDate: user.trialStartDate,
+      trialActive: user.trialActive,
+      subscriptionActive: user.subscriptionActive,
     },
   });
 };
@@ -84,7 +88,13 @@ router.post('/register', async (req, res) => {
       personalityVibe,
       guestsAndVisitors,
       hobbies,
+      photos,
+      yearInSchool,
     } = req.body || {};
+
+    const YEAR_IN_SCHOOL = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Other'];
+    const yearNorm = yearInSchool ? String(yearInSchool).trim() : '';
+    const yearInSchoolVal = YEAR_IN_SCHOOL.includes(yearNorm) ? yearNorm : undefined;
 
     if (!firstName || !lastInitial || !email || !password || !accessCode || !schoolId || !campusPreference || !monthlyBudget) {
       return res.status(400).json({ message: 'All required fields must be provided' });
@@ -126,6 +136,8 @@ router.post('/register', async (req, res) => {
       year: now.getFullYear(),
     };
 
+    const photoArr = Array.isArray(photos) ? photos.filter((p) => typeof p === 'string').slice(0, 5) : [];
+
     const user = await User.create({
       firstName: String(firstName).trim(),
       lastInitial: String(lastInitial).trim().toUpperCase().slice(0, 1),
@@ -138,6 +150,8 @@ router.post('/register', async (req, res) => {
       age: ageNum,
       major: major || '',
       bio: bio || '',
+      photos: photoArr,
+      yearInSchool: yearInSchoolVal,
       moveInTimeframe,
       intent,
       monthlyBudget,
@@ -152,6 +166,9 @@ router.post('/register', async (req, res) => {
       guestsAndVisitors: guestsAndVisitors || {},
       hobbies: hobbies || '',
       memberSince,
+      trialStartDate: now,
+      trialActive: true,
+      subscriptionActive: false,
     });
 
     // Ensure `user.school` includes name/state for the immediate post-signup UX.

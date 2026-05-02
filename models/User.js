@@ -36,8 +36,17 @@ const UserSchema = new mongoose.Schema(
     apartment: { type: mongoose.Schema.Types.ObjectId, ref: 'Apartment', default: null },
     apartmentName: { type: String, default: '' },
 
+    // Subscription / trial (Roomiez)
+    trialStartDate: { type: Date, default: Date.now },
+    trialActive: { type: Boolean, default: true },
+    subscriptionActive: { type: Boolean, default: false },
+
     // Profile basics
     age: { type: Number, min: 18 },
+    yearInSchool: {
+      type: String,
+      enum: ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Other'],
+    },
     major: { type: String, default: '' },
     bio: { type: String, default: '' },
     photos: [{ type: String }],

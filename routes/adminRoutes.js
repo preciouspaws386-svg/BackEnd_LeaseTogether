@@ -5,6 +5,7 @@ const MeetUp = require('../models/MeetUp');
 const AccessCode = require('../models/AccessCode');
 const School = require('../models/School');
 const Listing = require('../models/Listing');
+const SchoolRequest = require('../models/SchoolRequest');
 const { protect } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/adminAuth');
 
@@ -352,6 +353,16 @@ router.patch('/users/:id/reset-school', async (req, res) => {
     
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json({ success: true, user });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Server error' });
+  }
+});
+
+// GET /api/admin/school-requests
+router.get('/school-requests', async (req, res) => {
+  try {
+    const requests = await SchoolRequest.find({}).sort({ createdAt: -1 });
+    return res.json({ success: true, requests });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });
   }

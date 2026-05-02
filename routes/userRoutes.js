@@ -49,7 +49,7 @@ router.get('/community', protect, async (req, res) => {
 
     const users = await User.find(query)
       .select(
-        'firstName lastInitial age major bio photos moveInTimeframe intent isOpenToRoommate school campusPreference memberSince socialMedia lgbtqFriendly transportation hobbies monthlyBudget roommatePreference personalityVibe lifestyleVibes'
+        'firstName lastInitial age yearInSchool major bio photos moveInTimeframe intent isOpenToRoommate school campusPreference memberSince socialMedia lgbtqFriendly transportation hobbies monthlyBudget roommatePreference personalityVibe lifestyleVibes apartmentName'
       )
       .populate('school', 'name state');
 
@@ -97,7 +97,26 @@ router.patch('/profile', protect, async (req, res) => {
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) updates[field] = req.body[field];
     });
-    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
+
+    const yearOpts = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Other'];
+    let unsetYear = false;
+    if (req.body.yearInSchool !== undefined) {
+      const v = req.body.yearInSchool;
+      if (v === '' || v === null) {
+        unsetYear = true;
+      } else if (yearOpts.includes(String(v).trim())) {
+        updates.yearInSchool = String(v).trim();
+      }
+    }
+
+    const mongoOp = {};
+    if (Object.keys(updates).length) mongoOp.$set = updates;
+    if (unsetYear) mongoOp.$unset = { yearInSchool: '' };
+
+    const user =
+      Object.keys(mongoOp).length === 0
+        ? await User.findById(req.user._id)
+        : await User.findByIdAndUpdate(req.user._id, mongoOp, { new: true, runValidators: true });
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });
