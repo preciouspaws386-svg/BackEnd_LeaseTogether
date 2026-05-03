@@ -40,7 +40,9 @@ router.post('/', async (req, res) => {
 
     const schoolDoc = await School.findById(school);
     if (!schoolDoc) return res.status(400).json({ message: 'Invalid school selection' });
-    if (String(schoolDoc.state).toUpperCase() !== String(listingState).trim().toUpperCase()) {
+    const schoolState = String(schoolDoc.state || '').trim().toUpperCase();
+    const listingStateNorm = String(listingState).trim().toUpperCase();
+    if (schoolState !== listingStateNorm) {
       return res.status(400).json({ message: 'School does not match selected state' });
     }
 
