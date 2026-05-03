@@ -16,9 +16,18 @@ connectDB();
 
 const app = express();
 
+const ALLOWED_ORIGINS = [
+  'https://front-end-lease-together.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
 app.use(
   cors({
-    origin: 'https://front-end-lease-together.vercel.app',
+    origin(origin, cb) {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

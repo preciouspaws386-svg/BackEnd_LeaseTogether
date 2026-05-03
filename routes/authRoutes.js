@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const AccessCode = require('../models/AccessCode');
 const School = require('../models/School');
-const { protect } = require('../middleware/auth');
+const { protect, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -90,6 +90,7 @@ router.post('/register', async (req, res) => {
       hobbies,
       photos,
       yearInSchool,
+      signupState,
     } = req.body || {};
 
     const YEAR_IN_SCHOOL = ['Freshman', 'Sophomore', 'Junior', 'Senior', 'Graduate', 'Other'];
@@ -98,6 +99,10 @@ router.post('/register', async (req, res) => {
 
     if (!firstName || !lastInitial || !email || !password || !accessCode || !schoolId || !campusPreference || !monthlyBudget) {
       return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    if (!signupState || !String(signupState).trim()) {
+      return res.status(400).json({ message: 'State is required for registration' });
     }
 
     const ageNum = age === '' || age == null ? undefined : Number(age);
@@ -126,9 +131,12 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'This access code has already been used' });
     }
 
-    // Verify school exists
+    // Verify school exists and belongs to the claimed state (prevents forged schoolId)
     const school = await School.findById(schoolId);
     if (!school) return res.status(400).json({ message: 'Invalid school selection' });
+    if (String(school.state).toUpperCase() !== String(signupState).trim().toUpperCase()) {
+      return res.status(400).json({ message: 'School does not match selected state' });
+    }
 
     const now = new Date();
     const memberSince = {
@@ -213,8 +221,8 @@ router.post('/logout', (req, res) => {
   return res.json({ message: 'Logged out' });
 });
 
-// GET /api/auth/me
-router.get('/me', protect, async (req, res) => {
+// GET /api/auth/me — subscription not required here so the client can restore session on /subscription
+router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate('school', 'name state');
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -244,8 +252,12 @@ router.post('/verify-code', async (req, res) => {
 router.get('/schools', async (req, res) => {
   try {
     const { state } = req.query;
-    let query = {};
-    if (state) query.state = state;
+    const query = {};
+    if (state != null && String(state).trim()) {
+      const s = String(state).trim();
+      const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.state = new RegExp(`^${escaped}$`, 'i');
+    }
     const schools = await School.find(query).sort({ name: 1 });
     return res.json({ success: true, schools });
   } catch (err) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const Listing = require('../models/Listing');
 const AccessCode = require('../models/AccessCode');
+const School = require('../models/School');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -26,10 +27,21 @@ router.post('/', async (req, res) => {
       description,
       contactPhone,
       accessCode,
+      listingState,
     } = req.body || {};
 
     if (!school || !type || !listingCategory || !pricePerMonth || !bedrooms || !distanceFromSchool || !description || !contactPhone || !accessCode) {
       return res.status(400).json({ message: 'All required fields must be provided' });
+    }
+
+    if (!listingState || !String(listingState).trim()) {
+      return res.status(400).json({ message: 'State is required for listings' });
+    }
+
+    const schoolDoc = await School.findById(school);
+    if (!schoolDoc) return res.status(400).json({ message: 'Invalid school selection' });
+    if (String(schoolDoc.state).toUpperCase() !== String(listingState).trim().toUpperCase()) {
+      return res.status(400).json({ message: 'School does not match selected state' });
     }
 
     // Verify landlord access code
