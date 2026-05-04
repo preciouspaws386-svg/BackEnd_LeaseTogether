@@ -108,22 +108,54 @@ router.delete('/access-codes/:id', async (req, res) => {
 
 // ============ SCHOOLS ============
 
-// GET /api/admin/schools
+// GET /api/admin/schools — full list from DB (no proxy/browser cache); aggregation avoids populate edge cases
 router.get('/schools', async (req, res) => {
   try {
-    const schools = await School.find({})
-      .populate('offCampusPartners', 'name')
-      .sort({ name: 1 });
-    
-    const withCounts = await Promise.all(
-      schools.map(async (s) => {
-        const count = await User.countDocuments({ school: s._id });
-        return { ...s.toObject(), userCount: count };
-      })
-    );
-    
-    return res.json({ success: true, schools: withCounts });
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+
+    const userColl = User.collection.name;
+    const aptColl = Apartment.collection.name;
+
+    const schools = await School.aggregate([
+      { $sort: { name: 1 } },
+      {
+        $lookup: {
+          from: userColl,
+          let: { sid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$school', '$$sid'] } } },
+            { $count: 'c' },
+          ],
+          as: 'uc',
+        },
+      },
+      {
+        $lookup: {
+          from: aptColl,
+          localField: 'offCampusPartners',
+          foreignField: '_id',
+          as: 'offCampusPartnersResolved',
+        },
+      },
+      {
+        $addFields: {
+          userCount: { $ifNull: [{ $arrayElemAt: ['$uc.c', 0] }, 0] },
+          offCampusPartners: {
+            $map: {
+              input: '$offCampusPartnersResolved',
+              as: 'apt',
+              in: { _id: '$$apt._id', name: '$$apt.name' },
+            },
+          },
+        },
+      },
+      { $project: { offCampusPartnersResolved: 0, uc: 0 } },
+    ]);
+
+    return res.json({ success: true, schools, total: schools.length });
   } catch (err) {
+    console.error('GET /admin/schools', err);
     return res.status(500).json({ message: err.message || 'Server error' });
   }
 });
@@ -152,13 +184,18 @@ router.post('/schools', async (req, res) => {
 // PUT /api/admin/schools/:id
 router.put('/schools/:id', async (req, res) => {
   try {
-    const { name, state, onCampusLocations, offCampusPartners } = req.body;
-    const school = await School.findByIdAndUpdate(
-      req.params.id,
-      { name, state, onCampusLocations, offCampusPartners },
-      { new: true, runValidators: true }
-    ).populate('offCampusPartners', 'name');
-    
+    const body = req.body || {};
+    const updates = {};
+    if (body.name != null) updates.name = body.name;
+    if (body.state != null) updates.state = body.state;
+    if (body.onCampusLocations != null) updates.onCampusLocations = body.onCampusLocations;
+    if (body.offCampusPartners != null) updates.offCampusPartners = body.offCampusPartners;
+
+    const school = await School.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true }).populate(
+      'offCampusPartners',
+      'name'
+    );
+
     if (!school) return res.status(404).json({ message: 'School not found' });
     return res.json({ success: true, school });
   } catch (err) {
@@ -219,15 +256,35 @@ router.delete('/listings/:id', async (req, res) => {
 // ============ APARTMENTS ============
 router.get('/apartments', async (req, res) => {
   try {
-    const apartments = await Apartment.find({});
-    const withCounts = await Promise.all(
-      apartments.map(async (apt) => {
-        const count = await User.countDocuments({ apartment: apt._id });
-        return { ...apt.toObject(), userCount: count };
-      })
-    );
-    return res.json({ success: true, apartments: withCounts });
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+
+    const userColl = User.collection.name;
+
+    const apartments = await Apartment.aggregate([
+      { $sort: { name: 1 } },
+      {
+        $lookup: {
+          from: userColl,
+          let: { aid: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$apartment', '$$aid'] } } },
+            { $count: 'c' },
+          ],
+          as: 'uc',
+        },
+      },
+      {
+        $addFields: {
+          userCount: { $ifNull: [{ $arrayElemAt: ['$uc.c', 0] }, 0] },
+        },
+      },
+      { $project: { uc: 0 } },
+    ]);
+
+    return res.json({ success: true, apartments, total: apartments.length });
   } catch (err) {
+    console.error('GET /admin/apartments', err);
     return res.status(500).json({ message: err.message || 'Server error' });
   }
 });
