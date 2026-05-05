@@ -4,6 +4,10 @@ const School = require('../models/School');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
+/**
+ * Access-code policy:
+ * Access codes grant 7 days free trial, then subscription kicks in.
+ */
 
 // POST /api/users/photos
 router.post('/photos', protect, async (req, res) => {
@@ -26,7 +30,7 @@ router.post('/photos', protect, async (req, res) => {
       req.user._id,
       { photos: photos.slice(0, 5) },
       { new: true, runValidators: true }
-    );
+    ).populate('school', 'name state');
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });
@@ -63,7 +67,10 @@ router.get('/community', protect, async (req, res) => {
 router.patch('/status', protect, async (req, res) => {
   try {
     const { isOpenToRoommate } = req.body || {};
-    const user = await User.findByIdAndUpdate(req.user._id, { isOpenToRoommate }, { new: true });
+    const user = await User.findByIdAndUpdate(req.user._id, { isOpenToRoommate }, { new: true, runValidators: true }).populate(
+      'school',
+      'name state'
+    );
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });
@@ -116,7 +123,7 @@ router.patch('/profile', protect, async (req, res) => {
     const user =
       Object.keys(mongoOp).length === 0
         ? await User.findById(req.user._id)
-        : await User.findByIdAndUpdate(req.user._id, mongoOp, { new: true, runValidators: true });
+        : await User.findByIdAndUpdate(req.user._id, mongoOp, { new: true, runValidators: true }).populate('school', 'name state');
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });

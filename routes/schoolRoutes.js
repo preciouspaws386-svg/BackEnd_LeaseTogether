@@ -3,6 +3,10 @@ const School = require('../models/School');
 const SchoolRequest = require('../models/SchoolRequest');
 
 const router = express.Router();
+/**
+ * Access-code policy:
+ * Access codes grant 7 days free trial, then subscription kicks in.
+ */
 
 // POST /api/schools/request — public: suggest a missing school
 router.post('/request', async (req, res) => {
@@ -24,10 +28,16 @@ router.post('/request', async (req, res) => {
 // GET /api/schools — public: get all schools
 router.get('/', async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
     const { state } = req.query;
     let query = {};
-    if (state) query.state = state;
-    
+    if (state) {
+      const s = String(state).trim();
+      const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query.state = new RegExp(`^${escaped}$`, 'i');
+    }
+
     const schools = await School.find(query).sort({ name: 1 });
     return res.json({ success: true, schools });
   } catch (err) {

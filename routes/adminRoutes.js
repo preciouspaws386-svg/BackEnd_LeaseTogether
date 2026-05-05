@@ -10,6 +10,10 @@ const { protect } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/adminAuth');
 
 const router = express.Router();
+/**
+ * Access-code policy:
+ * Access codes grant 7 days free trial, then subscription kicks in.
+ */
 
 router.use(protect, adminOnly);
 
@@ -18,6 +22,8 @@ router.use(protect, adminOnly);
 // GET /api/admin/access-codes
 router.get('/access-codes', async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
     const codes = await AccessCode.find({})
       .populate('usedBy', 'firstName lastInitial email')
       .populate('apartmentId', 'name')
@@ -387,12 +393,24 @@ router.patch('/meetups/:id/status', async (req, res) => {
 // PATCH /api/admin/users/:id/disable
 router.patch('/users/:id/disable', async (req, res) => {
   try {
-    const { isDisabled } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, { isDisabled: Boolean(isDisabled) }, { new: true })
+    const incoming = req.body?.isDisabled;
+    const normalized =
+      typeof incoming === 'boolean'
+        ? incoming
+        : typeof incoming === 'string'
+          ? incoming.toLowerCase() === 'true'
+          : Boolean(incoming);
+
+    const existing = await User.findById(req.params.id).select('role');
+    if (!existing) return res.status(404).json({ message: 'User not found' });
+    if (existing.role === 'admin' && normalized) {
+      return res.status(400).json({ message: 'Admin accounts cannot be disabled' });
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, { isDisabled: normalized }, { new: true, runValidators: true })
       .populate('school', 'name state')
       .populate('apartment', 'name');
-    
-    if (!user) return res.status(404).json({ message: 'User not found' });
+
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });

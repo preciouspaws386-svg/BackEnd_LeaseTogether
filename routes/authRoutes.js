@@ -6,6 +6,10 @@ const School = require('../models/School');
 const { protect, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+/**
+ * Access-code policy:
+ * Access codes grant 7 days free trial, then subscription kicks in.
+ */
 
 const sendToken = (user, statusCode, res) => {
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -204,7 +208,7 @@ router.post('/login', async (req, res) => {
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    if (user.isDisabled) {
+    if (user.isDisabled && user.role !== 'admin') {
       return res.status(403).json({ message: 'Account disabled' });
     }
 
@@ -226,7 +230,7 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate('school', 'name state');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.isDisabled) return res.status(403).json({ message: 'Account disabled' });
+    if (user.isDisabled && user.role !== 'admin') return res.status(403).json({ message: 'Account disabled' });
     return res.json({ success: true, user });
   } catch (err) {
     return res.status(500).json({ message: err.message || 'Server error' });

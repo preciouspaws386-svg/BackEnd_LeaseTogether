@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const User = require('./models/User');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -12,9 +13,40 @@ const adminRoutes = require('./routes/adminRoutes');
 const listingRoutes = require('./routes/listingRoutes');
 const schoolRoutes = require('./routes/schoolRoutes');
 
-connectDB();
-
 const app = express();
+/**
+ * Access-code policy:
+ * Access codes grant 7 days free trial, then subscription kicks in.
+ */
+const ADMIN_EMAIL = 'admin@leasetogether.com';
+const ADMIN_PASSWORD = 'admin123';
+
+const ensureAdminAccount = async () => {
+  const adminEmail = ADMIN_EMAIL.toLowerCase().trim();
+  let admin = await User.findOne({ email: adminEmail }).select('+password');
+  if (!admin) {
+    admin = new User({
+      firstName: 'Admin',
+      lastInitial: 'U',
+      email: adminEmail,
+      password: ADMIN_PASSWORD,
+      role: 'admin',
+      subscriptionActive: true,
+      trialActive: true,
+      isDisabled: false,
+      isOpenToRoommate: false,
+    });
+  } else {
+    admin.firstName = admin.firstName || 'Admin';
+    admin.lastInitial = admin.lastInitial || 'U';
+    admin.role = 'admin';
+    admin.isDisabled = false;
+    admin.subscriptionActive = true;
+    admin.trialActive = true;
+    admin.password = ADMIN_PASSWORD;
+  }
+  await admin.save();
+};
 
 const ALLOWED_ORIGINS = [
   'https://front-end-lease-together.vercel.app',
@@ -58,4 +90,13 @@ app.use('/schools', schoolRoutes);
 app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const start = async () => {
+  await connectDB();
+  await ensureAdminAccount();
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+};
+
+start().catch((err) => {
+  console.error('Server startup failed:', err);
+  process.exit(1);
+});

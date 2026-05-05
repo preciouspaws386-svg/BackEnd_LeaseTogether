@@ -32,8 +32,18 @@ async function main() {
   console.log(`\nUsers with role "admin": ${adminCount}`);
 
   if (adminCount > 0) {
-    const admins = await User.find({ role: 'admin' }).select('email').lean();
-    admins.forEach((a) => console.log(`  - ${a.email}`));
+    const admins = await User.find({ role: 'admin' }).select('email isDisabled').lean();
+    admins.forEach((a) => {
+      const flag = a.isDisabled ? ' (isDisabled=true — login blocked with "Account disabled")' : '';
+      console.log(`  - ${a.email}${flag}`);
+    });
+
+    // API returns 403 "Account disabled" when isDisabled is true (authRoutes login + /me).
+    const unlock = await User.updateMany({ role: 'admin', isDisabled: true }, { $set: { isDisabled: false } });
+    if (unlock.modifiedCount > 0) {
+      console.log(`\nCleared isDisabled on ${unlock.modifiedCount} admin account(s) so they can log in again.`);
+    }
+
     console.log('\nDone (admin already present).');
     await mongoose.connection.close();
     process.exit(0);
