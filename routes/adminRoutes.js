@@ -417,6 +417,28 @@ router.patch('/users/:id/disable', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/users/:id
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('role');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.role === 'admin') {
+      return res.status(400).json({ message: 'Admin account cannot be deleted' });
+    }
+
+    await Promise.all([
+      MeetUp.deleteMany({ $or: [{ requester: req.params.id }, { receiver: req.params.id }] }),
+      Listing.deleteMany({ postedBy: req.params.id }),
+      AccessCode.updateMany({ usedBy: req.params.id }, { $set: { usedBy: null } }),
+      User.findByIdAndDelete(req.params.id),
+    ]);
+
+    return res.json({ success: true, message: 'User deleted permanently' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'Server error' });
+  }
+});
+
 // PATCH /api/admin/users/:id/reset-school
 router.patch('/users/:id/reset-school', async (req, res) => {
   try {
