@@ -48,24 +48,38 @@ const ensureAdminAccount = async () => {
   await admin.save();
 };
 
+const normalizeOrigin = (value = '') => value.trim().replace(/\/+$/, '');
+
+const envOrigins = [
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN,
+  ...(process.env.ALLOWED_ORIGINS || '').split(','),
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
 const ALLOWED_ORIGINS = [
   'https://front-end-lease-together.vercel.app',
+  'https://www.roomiez.shop',
+  'https://roomiez.shop',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  ...envOrigins,
 ];
 
-app.use(
-  cors({
-    origin(origin, cb) {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-      return cb(null, false);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-  })
-);
-app.options('*', cors());
+const corsOptions = {
+  origin(origin, cb) {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
