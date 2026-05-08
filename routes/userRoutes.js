@@ -53,7 +53,7 @@ router.get('/community', protect, async (req, res) => {
 
     const users = await User.find(query)
       .select(
-        'firstName lastInitial age yearInSchool major bio photos moveInTimeframe intent isOpenToRoommate school campusPreference memberSince socialMedia lgbtqFriendly transportation hobbies monthlyBudget roommatePreference personalityVibe lifestyleVibes apartmentName'
+        'firstName lastInitial age yearInSchool major bio photos moveInTimeframe intent isOpenToRoommate school campusPreference memberSince socialMedia lgbtqFriendly transportation hobbies monthlyBudget roommatePreference religion personalityVibe lifestyleVibes livingTogether guestsAndVisitors apartmentName'
       )
       .populate('school', 'name state');
 
